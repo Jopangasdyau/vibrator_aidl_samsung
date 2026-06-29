@@ -1,0 +1,27 @@
+// Build with: `mm` from this dir inside an AOSP/Lineage tree, or add to PRODUCT_PACKAGES.
+// Targets the FROZEN V2 vibrator interface on purpose so it compiles unchanged on
+// Android 13..16 (OneUI 8.5 = Android 16) without chasing V3 method additions.
+// The framework happily talks to a V2 vibrator.
+cc_binary {
+    name: "vibrator-aidl-jopvan@1.0-service",
+    relative_install_path: "hw",
+    vendor: true,
+    init_rc: ["vibrator-aidl-jopvan@1.0-service.rc"],
+    vintf_fragments: ["vibrator-aidl-jopvan@1.0-service.xml"],
+    srcs: [
+        "service.cpp",
+        "Vibrator.cpp",
+        "SehExtension.cpp",
+    ],
+    shared_libs: [
+        "libbase",
+        "libbinder_ndk",
+        "liblog",
+        "android.hardware.vibrator-V2-ndk",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wextra",
+    ],
+}

@@ -1,0 +1,6 @@
+service vendor.vibrator-aidl-jopvan /vendor/bin/hw/vibrator-aidl-jopvan@1.0-service
+    class hal
+    user system
+    group system input
+    # Force-feedback input nodes are root:input 0660; the "input" group lets us open them.
+    shutdown critical
