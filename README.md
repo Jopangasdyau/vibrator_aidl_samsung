@@ -1,4 +1,5 @@
 # vibrator-ffinput — AIDL IVibrator HAL for qcom-hv-haptics (input force-feedback)
+# Currently only available for qcom haptics device
 
 A standalone AIDL `android.hardware.vibrator` service that drives a qcom-hv-haptics
 LRA exposed as a Linux **force-feedback input device** (`/dev/input/eventN`,
