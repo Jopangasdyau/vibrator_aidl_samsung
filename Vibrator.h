@@ -1,19 +1,5 @@
-/*
- * AIDL IVibrator HAL for qcom-hv-haptics via the Linux input force-feedback API.
- *
- * Drives an LRA exposed as a force-feedback input device (e.g. /dev/input/eventN,
- * name "qcom-hv-haptics"). Implements:
- *   - on/off + amplitude control (FF_CONSTANT)            -> waveforms, ringtone
- *   - perform() predefined effects                         -> click/tick/...
- *   - compose() composition primitives                     -> Gboard, soft taps,
- *                                                             modern app haptics
- * Short/low pulses are floored to a perceptible duration/amplitude so light
- * keyboard ticks actually move the LRA.
- */
 #pragma once
-
 #include <aidl/android/hardware/vibrator/BnVibrator.h>
-
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -40,11 +26,8 @@ class Vibrator : public BnVibrator {
                                int32_t* _aidl_return) override;
     ndk::ScopedAStatus getSupportedEffects(std::vector<Effect>* _aidl_return) override;
 
-    // Fire a single self-stopping pulse. Used by the Samsung Seh extension to
-    // render SemHaptic / haptic-engine effects (called from a binder thread).
     void triggerHapticHint(int32_t durationMs, float amplitude);
 
-    // --- composition / primitives (Gboard & modern haptics) ---
     ndk::ScopedAStatus getCompositionDelayMax(int32_t* maxDelayMs) override;
     ndk::ScopedAStatus getCompositionSizeMax(int32_t* maxSize) override;
     ndk::ScopedAStatus getSupportedPrimitives(std::vector<CompositePrimitive>* supported) override;
@@ -53,7 +36,6 @@ class Vibrator : public BnVibrator {
     ndk::ScopedAStatus compose(const std::vector<CompositeEffect>& composite,
                                const std::shared_ptr<IVibratorCallback>& callback) override;
 
-    // --- advertised as unsupported (framework falls back gracefully) ---
     ndk::ScopedAStatus setExternalControl(bool enabled) override;
     ndk::ScopedAStatus getSupportedAlwaysOnEffects(std::vector<Effect>* _aidl_return) override;
     ndk::ScopedAStatus alwaysOnEnable(int32_t id, Effect effect, EffectStrength strength) override;
@@ -70,10 +52,9 @@ class Vibrator : public BnVibrator {
                                    const std::shared_ptr<IVibratorCallback>& callback) override;
 
   private:
-    // One element of a played sequence: wait delayMs, then buzz at amplitude for durationMs.
     struct Step {
         int32_t delayMs;
-        float amplitude;   // (0,1]
+        float amplitude;
         int32_t durationMs;
     };
 
@@ -82,17 +63,15 @@ class Vibrator : public BnVibrator {
     void stopLocked();                             // requires mMutex
     static int16_t scaleMagnitude(float amplitude);
 
-    // on()-style one-shot completion timer.
     void armCallbackLocked(int32_t durationMs,
                            const std::shared_ptr<IVibratorCallback>& callback);
     void cancelCallbackLocked();
 
-    // perform()/compose() sequencing engine.
     void startSequence(std::vector<Step> steps,
                        const std::shared_ptr<IVibratorCallback>& callback);
     void runSequence(std::vector<Step> steps, std::shared_ptr<IVibratorCallback> callback);
-    void cancelSequence();                 // stop + join worker (do NOT hold mMutex)
-    bool interruptibleSleepMs(int32_t ms); // returns true if cancelled
+    void cancelSequence();
+    bool interruptibleSleepMs(int32_t ms);
     bool sequenceCancelled();
 
     static float primitiveAmplitude(CompositePrimitive p);
@@ -106,18 +85,16 @@ class Vibrator : public BnVibrator {
     std::chrono::steady_clock::time_point mDeadline;
     std::string mDevicePath;
 
-    // on() completion timer
     std::thread mCallbackThread;
     std::condition_variable mCallbackCv;
     std::mutex mCallbackMutex;
     bool mCallbackCancel = false;
     bool mCallbackPending = false;
 
-    // perform()/compose() worker
     std::thread mWorker;
     std::mutex mWorkerMutex;
     std::condition_variable mWorkerCv;
     bool mWorkerCancel = false;
 };
 
-}  // namespace aidl::android::hardware::vibrator
+}
