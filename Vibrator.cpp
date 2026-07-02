@@ -1,38 +1,24 @@
-/*
- * AIDL IVibrator HAL for qcom-hv-haptics via Linux input force-feedback.
- * See Vibrator.h for design notes.
- */
 #define LOG_TAG "vibrator-ffinput"
-
 #include "Vibrator.h"
-
 #include <android-base/logging.h>
 #include <android-base/properties.h>
-
 #include <dirent.h>
 #include <fcntl.h>
 #include <linux/input.h>
 #include <string.h>
 #include <unistd.h>
-
 #include <algorithm>
 #include <cerrno>
 
 namespace aidl::android::hardware::vibrator {
 
-// Perceptibility floors: this LRA needs a little time/level to actually move,
-// otherwise very short/low taps (e.g. Gboard keypress) are silent.
 static constexpr int32_t kMinDurationMs = 10;
 static constexpr float kMinPulseAmplitude = 0.35f;
-
-// Predefined effect tuning (duration ms).
 static constexpr int32_t kClickDurationMs = 18;
 static constexpr int32_t kTickDurationMs = 12;
 static constexpr int32_t kDoubleClickGapMs = 90;
 static constexpr int32_t kHeavyClickDurationMs = 28;
-
 static constexpr char kDeviceProp[] = "persist.vendor.vibrator.ffinput.device";
-
 static bool ffBitSet(const unsigned long* bits, int bit) {
     return (bits[bit / (8 * sizeof(unsigned long))] >>
             (bit % (8 * sizeof(unsigned long)))) &
@@ -123,7 +109,7 @@ int16_t Vibrator::scaleMagnitude(float amplitude) {
 
 bool Vibrator::playConstantLocked(int32_t durationMs) {
     if (mFd < 0) return false;
-    if (durationMs < kMinDurationMs) durationMs = kMinDurationMs;  // ensure the LRA moves
+    if (durationMs < kMinDurationMs) durationMs = kMinDurationMs;
 
     struct ff_effect effect;
     memset(&effect, 0, sizeof(effect));
@@ -170,8 +156,6 @@ void Vibrator::stopLocked() {
     mIsOn = false;
 }
 
-// ---- on() completion timer ------------------------------------------------
-
 void Vibrator::cancelCallbackLocked() {
     std::lock_guard<std::mutex> lock(mCallbackMutex);
     mCallbackCancel = true;
@@ -201,8 +185,6 @@ void Vibrator::armCallbackLocked(int32_t durationMs,
         if (!ret.isOk()) LOG(WARNING) << "onComplete callback failed";
     });
 }
-
-// ---- perform()/compose() sequencing engine --------------------------------
 
 bool Vibrator::sequenceCancelled() {
     std::lock_guard<std::mutex> lock(mWorkerMutex);
@@ -262,10 +244,8 @@ void Vibrator::runSequence(std::vector<Step> steps,
     }
     return;
 cancelled:
-    return;  // off()/new request will deliver no completion (matches AOSP semantics)
+    return;
 }
-
-// ---- primitive tuning -----------------------------------------------------
 
 float Vibrator::primitiveAmplitude(CompositePrimitive p) {
     switch (p) {
@@ -294,8 +274,6 @@ int32_t Vibrator::primitiveDurationMs(CompositePrimitive p) {
         default:                             return 0;  // NOOP
     }
 }
-
-// ---- IVibrator core -------------------------------------------------------
 
 ndk::ScopedAStatus Vibrator::getCapabilities(int32_t* _aidl_return) {
     *_aidl_return = IVibrator::CAP_ON_CALLBACK | IVibrator::CAP_PERFORM_CALLBACK |
@@ -456,7 +434,6 @@ ndk::ScopedAStatus Vibrator::compose(const std::vector<CompositeEffect>& composi
 
         int32_t dur = primitiveDurationMs(ce.primitive);
         if (ce.primitive == CompositePrimitive::NOOP || dur == 0) {
-            // NOOP: honor only the delay.
             steps.push_back({ce.delayMs, kMinPulseAmplitude, 0});
             continue;
         }
@@ -467,8 +444,6 @@ ndk::ScopedAStatus Vibrator::compose(const std::vector<CompositeEffect>& composi
     startSequence(std::move(steps), callback);
     return ndk::ScopedAStatus::ok();
 }
-
-// ---- unsupported surface --------------------------------------------------
 
 ndk::ScopedAStatus Vibrator::setExternalControl(bool /*enabled*/) {
     return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
@@ -484,23 +459,22 @@ ndk::ScopedAStatus Vibrator::alwaysOnDisable(int32_t) {
     return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 }
 ndk::ScopedAStatus Vibrator::getResonantFrequency(float* resonantFreqHz) {
-    *resonantFreqHz = 175.0f;  // qcom-hv-haptics typical resonant frequency ~175 Hz
+    *resonantFreqHz = 175.0f;
     return ndk::ScopedAStatus::ok();
 }
 ndk::ScopedAStatus Vibrator::getQFactor(float* qFactor) {
-    *qFactor = 15.0f;  // Typical Q factor for LRA
+    *qFactor = 15.0f;
     return ndk::ScopedAStatus::ok();
 }
 ndk::ScopedAStatus Vibrator::getFrequencyResolution(float* freqResolutionHz) {
-    *freqResolutionHz = 1.0f;  // 1 Hz resolution
+    *freqResolutionHz = 1.0f;
     return ndk::ScopedAStatus::ok();
 }
 ndk::ScopedAStatus Vibrator::getFrequencyMinimum(float* freqMinimumHz) {
-    *freqMinimumHz = 100.0f;  // Minimum frequency for qcom-hv-haptics LRA
+    *freqMinimumHz = 100.0f;
     return ndk::ScopedAStatus::ok();
 }
 ndk::ScopedAStatus Vibrator::getBandwidthAmplitudeMap(std::vector<float>* _aidl_return) {
-    // Simple linear map: frequency range 100-300 Hz maps to 0.3-1.0 amplitude
     *_aidl_return = {100.0f, 0.3f, 300.0f, 1.0f};
     return ndk::ScopedAStatus::ok();
 }
@@ -519,4 +493,4 @@ ndk::ScopedAStatus Vibrator::composePwle(const std::vector<PrimitivePwle>&,
     return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 }
 
-}  // namespace aidl::android::hardware::vibrator
+}
