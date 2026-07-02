@@ -17,8 +17,8 @@ namespace seh = aidl::vendor::samsung::hardware::vibrator;
 using ndk::ScopedAStatus;
 
 // Default pulse used when a packet's intended duration/intensity can't be derived.
-constexpr int32_t kDefaultDurationMs = 22;
-constexpr float kDefaultAmplitude = 0.65f;
+constexpr int32_t kDefaultDurationMs = 10;
+constexpr float kDefaultAmplitude = 0.70f;
 
 // Map a raw SehHapticEnginePacket (4 int32 fields, exact semantics unknown) to a
 // felt pulse. Heuristic + logged so the mapping can be tuned from real values.
@@ -46,7 +46,7 @@ class SehVibrator : public seh::BnSehVibrator {
     explicit SehVibrator(std::function<void(int32_t, float)> play) : mPlay(std::move(play)) {}
 
     // ---- capabilities ----
-    ScopedAStatus supportsHapticEngine(bool* r) override { *r = true; return ok(); }
+    ScopedAStatus supportsHapticEngine(bool* r) override { *r = false; return ok(); }
     ScopedAStatus supportsEnhancedSamsungHapticPattern(bool* r) override { *r = true; return ok(); }
     ScopedAStatus supportsAmplitudeControl(bool* r) override { *r = true; return ok(); }
     ScopedAStatus supportsForceTouchAmplitudeControl(bool* r) override { *r = false; return ok(); }
